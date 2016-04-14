@@ -1,0 +1,45 @@
+#ifndef MATRIX_H
+#define MATRIX_H
+
+#include <assert.h>
+#include <stdio.h>
+#include <math.h>
+
+// class definition for 2D matrices
+
+
+template<class T, int R, int C> class Matrix
+{
+	public:
+		Matrix();
+		~Matrix();
+		Matrix(const Matrix<T,R,C>& inputMatrix);
+		Matrix(T arrayInit[]);						// constructor with array initializer
+		Matrix<T,R,C> operator+(const Matrix<T,R,C>& rhs) const;		// matrix addition
+		Matrix<T,R,C> operator-(const Matrix<T,R,C>& rhs) const;		// matrix subtraction
+		Matrix<T,R,C> operator*(const T& factor) const;			// element-by-element multiplication
+		Matrix<T,R,C> operator/(const T& divisor) const;			// element-by-element division
+		template<int RR, int CR> Matrix<T,R,CR> operator*(const Matrix<T,RR,CR>& rhs) const;		// matrix multiplication
+		Matrix<T,C,R> transpose() const;				// transpose
+		T& operator()(const int rowIdx, const int colIdx);		// 2D indexing operator (reference)
+		T& operator()(const int index);					// 1D indexing operator (reference)
+		T operator()(const int rowIdx, const int colIdx) const;		// 2D indexing operator (return copy)
+		T operator()(const int index) const;				// 1D indexing operator (return copy)
+		Matrix<T,R,C>& rowSwap(int row1Idx, int row2Idx);				// row swap method
+		int getNumElements() const;						// get number of elements
+		Matrix<int,1,2> size();						// get dimensions of this Matrix
+		void printValues();						// print values to command line
+		Matrix<T,R,C> inverse() const;
+		T norm() const;							// 2-norm of matrix
+		
+		
+	private:
+		int m_numRows;
+		int m_numCols;
+		T m_data[R*C];
+};
+
+// include class implementation file to resolve linking issues for template class
+#include <Matrix.cpp>
+
+#endif // end Matrix header include guard
