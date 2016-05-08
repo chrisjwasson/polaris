@@ -1,3 +1,5 @@
+#!/usr/local/bin/ppython
+
 from math import pi, sin, cos
 from direct.showbase.ShowBase import ShowBase
 from direct.task import Task
@@ -33,7 +35,7 @@ class MyApp(ShowBase):
 		self.disableMouse()
 
 		# load the environment model
-		self.scene = self.loader.loadModel("/home/chris/Documents/opengl/python/models/island/island.egg")
+		self.scene = self.loader.loadModel("models/island/island.egg")
 
 		# reparent the model to render
 		self.scene.reparentTo(self.render)
@@ -50,7 +52,7 @@ class MyApp(ShowBase):
 		self.camera.setHpr(135,-45,0)
 
 		# load sky model
-		self.sky = self.loader.loadModel("/home/chris/Documents/opengl/python/models/blueSky/blue_sky_sphere.egg")
+		self.sky = self.loader.loadModel("models/blueSky/blue_sky_sphere.egg")
 		self.sky.setScale(1,1,1)
 		self.sky.setPos(0,0,0)
 		self.sky.reparentTo(self.render)
@@ -59,7 +61,7 @@ class MyApp(ShowBase):
 		# self.taskMgr.add(self.spinCameraTask,"SpinCameraTask")
 
 		# load airplane
-		self.planeModel = self.loader.loadModel("/home/chris/Documents/opengl/python/models/jet/jet.egg")
+		self.planeModel = self.loader.loadModel("models/jet/jet.egg")
 		self.planeModel.setPos(0,0,40)
 		self.planeModel.setScale(0.4,0.4,0.4)
 		self.planeModel.setHpr(180,0,0)
