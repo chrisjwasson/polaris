@@ -75,6 +75,30 @@ class MyApp(ShowBase):
         # add plane attitude update task
         self.taskMgr.add(self.redrawAirplane,"RedrawAirplane")
 
+        # define body node, for convenience
+        self.np_body = self.planeModel.attachNewNode("body")
+        self.np_body.setHpr(Vec3(90,-180,0))
+
+        # draw accel line
+        self.np_aframe = self.np_body.attachNewNode("aframe")
+
+        self.a_vec = self.loader.loadModel("models/cylinder/cylinder.egg")
+        self.a_vec.setPos(0,0,-30)
+        self.a_vec.setScale(1,1,20)
+        self.a_vec.setHpr(0,0,0)
+        self.a_vec.reparentTo(self.np_aframe)
+        self.a_vec.setColor(1,0,0,1)
+
+        # draw mag line
+        self.np_mframe = self.np_body.attachNewNode("mframe")
+
+        self.m_vec = self.loader.loadModel("models/cylinder/cylinder.egg")
+        self.m_vec.setPos(0,0,-30)
+        self.m_vec.setScale(1,1,20)
+        self.m_vec.setHpr(0,0,0)
+        self.m_vec.reparentTo(self.np_mframe)
+        self.m_vec.setColor(0,1,0,1)
+
         # add camera buttons
         self.cameraPlaneFrameButton = DirectButton(text=("PLANE\nFRAME","PLANE\nFRAME","PLANE\nFRAME?","disabled"),text_bg=Vec4(0,0,0,1),text_fg=Vec4(1,0,0,1),scale=0.05,relief=None,pos=Vec3(-1.3,0,-0.9),command=self.setPlaneFrame)
         self.cameraSceneFrameButton = DirectButton(text=("SCENE\nFRAME","SCENE\nFRAME","SCENE\nFRAME?","disabled"),text_bg=Vec4(0,0,0,1),text_fg=Vec4(1,0,0,1),scale=0.05,relief=None,pos=Vec3(-1.1,0,-0.9),command=self.setSceneFrame)
@@ -195,6 +219,10 @@ class MyApp(ShowBase):
             print "Accel Y (m/s^2): ",self.tmService.TM_Data.ay
             print "Accel Z (m/s^2): ",self.tmService.TM_Data.az
             print ''
+            print "Magnet X (deg/sec): ",self.tmService.TM_Data.mx
+            print "Magnet Y (deg/sec): ",self.tmService.TM_Data.my
+            print "Magnet Z (deg/sec): ",self.tmService.TM_Data.mz
+            print ''
             print "lat (deg): ",self.tmService.TM_Data.lat
             print "lon (deg): ",self.tmService.TM_Data.lon
             print "alt (ft?): ",self.tmService.TM_Data.alt
@@ -211,6 +239,34 @@ class MyApp(ShowBase):
                         )
 
             self.planeModel.setQuat(quatBodyToModel*quatPlaneEciToBody)
+
+            # convenience function
+            def getHprFromTo( fromNP, toNP ):
+                fromNP.lookAt( toNP ) 
+                fromNP.setHpr( fromNP, Vec3( 0, 90, 0 ) )
+                return fromNP.getHpr()
+
+            # set accel orientation
+            a_vec = Vec3(self.tmService.TM_Data.ax,
+                         self.tmService.TM_Data.ay,
+                         self.tmService.TM_Data.az)
+            np0 = NodePath("np0")
+            np0.setPos(Vec3(0,0,0))
+            np1 = NodePath("np1")
+            np1.setPos(a_vec)
+            hpr = getHprFromTo(np0, np1)
+            self.np_aframe.setHpr(hpr)
+
+            # set mag orientation
+            a_vec = Vec3(self.tmService.TM_Data.mx,
+                         self.tmService.TM_Data.my,
+                         self.tmService.TM_Data.mz)
+            np0 = NodePath("np0")
+            np0.setPos(Vec3(0,0,0))
+            np1 = NodePath("np1")
+            np1.setPos(a_vec)
+            hpr = getHprFromTo(np0, np1)
+            self.np_mframe.setHpr(hpr)
 
         # readjust plane attitude
         #self.planeModel.setHpr(yaw,pitch,roll)

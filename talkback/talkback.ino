@@ -27,6 +27,7 @@ typedef struct {
 //  char message[32];
   float ax, ay, az;
   float gx, gy, gz;
+  float mx, my, mz;
   float q1, q2, q3, q4;
   float lat, lon, alt;
   float deltaTimeSec;
@@ -41,7 +42,6 @@ MPU6050 imu;
 
 // declare variables for sensor measurements
 int16_t a1, a2, a3, g1, g2, g3, m1, m2, m3;
-float mx,my,mz;
 float q1,q2,q3,q4;
 float deltaTSec;
 float tmDeltaTSec;
@@ -50,13 +50,23 @@ uint32_t currMicroSec;
 uint32_t lastTmMicroSec;
 Quat attQuat;
 Quat attQuatDeriv;
-Matrix<double,3,1> rateDegSec;
+Matrix<double,3,1> a_body;
+Matrix<double,3,1> w_body;
+Matrix<double,3,1> m_body;
 uint32_t gyroBiasCounter = 0;
-float gyroBias1 = -1.459;
-float gyroBias2 = 0.794;
-float gyroBias3 = -0.597;
+float gyroBias1 = -2.843;
+float gyroBias2 = 1.484;
+float gyroBias3 = -1.207;
+float magnetBias1 = 20;
+float magnetBias2 = 105;
+float magnetBias3 = -30;
+
+// [80 140 75]
+// [-40 70 -140]
+
 
 Matrix<double,3,3> DCM_gyroAccelToBody;
+Matrix<double,3,3> DCM_MagToBody;
 
 
 // computes the checksum of the telemetry struct by computing a 1-byte parity word (XOR of all 1-byte words in frame)
@@ -115,7 +125,7 @@ void setup() {
   lastMicroSec = micros();
   lastTmMicroSec = micros();
   
-  // define sensor to body frame
+  // define gyro+accel to body frame
   DCM_gyroAccelToBody(0,0) = -1;
   DCM_gyroAccelToBody(0,1) = 0;
   DCM_gyroAccelToBody(0,2) = 0;
@@ -125,6 +135,17 @@ void setup() {
   DCM_gyroAccelToBody(2,0) = 0;
   DCM_gyroAccelToBody(2,1) = 0;
   DCM_gyroAccelToBody(2,2) = -1;
+
+  // define magnetometer to body frame
+  DCM_MagToBody(0,0) = 0;
+  DCM_MagToBody(0,1) = -1;
+  DCM_MagToBody(0,2) = 0;
+  DCM_MagToBody(1,0) = 1;
+  DCM_MagToBody(1,1) = 0;
+  DCM_MagToBody(1,2) = 0;
+  DCM_MagToBody(2,0) = 0;
+  DCM_MagToBody(2,1) = 0;
+  DCM_MagToBody(2,2) = 1;
   
 
 }
@@ -212,15 +233,28 @@ bool handleIMU()
     // read data
     imu.getAcceleration(&a1,&a2,&a3);
     imu.getRotation(&g1,&g2,&g3);
+    imu.getMag(&m1,&m2,&m3);
+
+    // stuff accels into vector
+    a_body(0) = a1*ACCEL_SCALE_FACTOR;
+    a_body(1) = a2*ACCEL_SCALE_FACTOR;
+    a_body(2) = a3*ACCEL_SCALE_FACTOR;
     
     // 250 deg/sec full rate range
-    rateDegSec(0) = g1*GYRO_SCALE_FACTOR - gyroBias1;
-    rateDegSec(1) = g2*GYRO_SCALE_FACTOR - gyroBias2;
-    rateDegSec(2) = g3*GYRO_SCALE_FACTOR - gyroBias3;
+    w_body(0) = g1*GYRO_SCALE_FACTOR - gyroBias1;
+    w_body(1) = g2*GYRO_SCALE_FACTOR - gyroBias2;
+    w_body(2) = g3*GYRO_SCALE_FACTOR - gyroBias3;
+
+    // stuff magnets into vector
+    m_body(0) = m1 - magnetBias1;
+    m_body(1) = m2 - magnetBias2;
+    m_body(2) = m3 - magnetBias3;
     
-    // transform to plane body frame
-    rateDegSec = DCM_gyroAccelToBody*rateDegSec;
-    
+    // transform stuff plane body frame
+    a_body = DCM_gyroAccelToBody*a_body;
+    w_body = DCM_gyroAccelToBody*w_body;
+    m_body = DCM_MagToBody*m_body;
+        
     // get time since last imu update
     if (currMicroSec < lastMicroSec) {
       deltaTSec = ((4294967295 - lastMicroSec) + currMicroSec)/1000000.0;
@@ -231,61 +265,13 @@ bool handleIMU()
     lastMicroSec = currMicroSec; // reset timer
         
     // get attitude derivative quaternion
-    attQuatDeriv = attQuat.getQuatDerivative(rateDegSec*M_PI/180.0);
+    attQuatDeriv = attQuat.getQuatDerivative(w_body*M_PI/180.0);
     
     // perform integration for this step
     attQuat = attQuat + (attQuatDeriv*deltaTSec);
     
     // normalize attitude quaternion
     attQuat = attQuat.normalize();
-    
-    /*
-    // compute gyro bias (continue averaging)
-    gyroBias1 *= gyroBiasCounter;
-    gyroBias2 *= gyroBiasCounter;
-    gyroBias3 *= gyroBiasCounter;
-    gyroBias1 += rateDegSec(0);
-    gyroBias2 += rateDegSec(1);
-    gyroBias3 += rateDegSec(2);
-    gyroBiasCounter++;
-    gyroBias1 /= gyroBiasCounter;
-    gyroBias2 /= gyroBiasCounter;
-    gyroBias3 /= gyroBiasCounter;
-    tmMessage.q1 = gyroBias1;
-    tmMessage.q2 = gyroBias2;
-    tmMessage.q3 = gyroBias3;
-    */
-  }
-
-  // print in console-friendly format for direct usb debugging
-  if (false){
-      char buf [7];
-      Serial.print("rate: [ ");
-      dtostrf(rateDegSec(0),5,1,buf);
-      Serial.print(buf);
-      Serial.print(" ");
-      dtostrf(rateDegSec(1),5,1,buf);
-      Serial.print(buf);
-      Serial.print(" ");
-      dtostrf(rateDegSec(2),5,1,buf);
-      Serial.print(buf);
-      Serial.println(" ]");
-  }
-  if (false){
-      char buf [7];
-      Serial.print("quat: [ ");
-      dtostrf(attQuat(0),5,1,buf);
-      Serial.print(buf);
-      Serial.print(" ");
-      dtostrf(attQuat(1),5,1,buf);
-      Serial.print(buf);
-      Serial.print(" ");
-      dtostrf(attQuat(2),5,1,buf);
-      Serial.print(buf);
-      Serial.print(" ");
-      dtostrf(attQuat(3),5,1,buf);
-      Serial.print(buf);
-      Serial.println(" ]");
   }
 }
 
@@ -294,15 +280,20 @@ bool handleTelem()
   // increment loop counter
   //tmMessage.loopCounter++;
 
+  // magnets!
+  tmMessage.mx = m_body(0);
+  tmMessage.my = m_body(1);
+  tmMessage.mz = m_body(2);
+
   // 2.0 g full acceleration range with 16 bits
-  tmMessage.ax = a1*ACCEL_SCALE_FACTOR;
-  tmMessage.ay = a2*ACCEL_SCALE_FACTOR;
-  tmMessage.az = a3*ACCEL_SCALE_FACTOR;
+  tmMessage.ax = a_body(0);
+  tmMessage.ay = a_body(1);
+  tmMessage.az = a_body(2);
 
   // rate data
-  tmMessage.gx = rateDegSec(0);
-  tmMessage.gy = rateDegSec(1);
-  tmMessage.gz = rateDegSec(2);
+  tmMessage.gx = w_body(0);
+  tmMessage.gy = w_body(1);
+  tmMessage.gz = w_body(2);
   
   // attitude estimate
   tmMessage.q1 = attQuat(0);
@@ -334,6 +325,101 @@ bool handleTelem()
   }
 }
 
+void debugBias()
+{
+    // compute gyro bias (continue averaging)
+    gyroBias1 *= gyroBiasCounter;
+    gyroBias2 *= gyroBiasCounter;
+    gyroBias3 *= gyroBiasCounter;
+    gyroBias1 += g1*GYRO_SCALE_FACTOR;
+    gyroBias2 += g2*GYRO_SCALE_FACTOR;
+    gyroBias3 += g3*GYRO_SCALE_FACTOR;
+    gyroBiasCounter++;
+    gyroBias1 /= gyroBiasCounter;
+    gyroBias2 /= gyroBiasCounter;
+    gyroBias3 /= gyroBiasCounter;
+    Serial.println("");
+    Serial.println("");
+    Serial.println("");
+    Serial.println("");
+    Serial.print("X: ");
+    Serial.println(gyroBias1,3);
+    Serial.print("Y: ");
+    Serial.println(gyroBias2,3);
+    Serial.print("Z: ");
+    Serial.println(gyroBias3,3);
+}
+
+// print in console-friendly format for direct usb debugging
+void debugIMU()
+{
+  // print accels all o'er
+  if (false){
+      char buf [7];
+      Serial.print("accels: [ ");
+      dtostrf(a_body(0),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(a_body(1),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(a_body(2),5,1,buf);
+      Serial.print(buf);
+      Serial.println(" ]");
+  }
+  
+  // print rate
+  if (false){
+      char buf [7];
+      Serial.print("rate: [ ");
+      dtostrf(w_body(0),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(w_body(1),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(w_body(2),5,1,buf);
+      Serial.print(buf);
+      Serial.println(" ]");
+  }
+
+  // print magnets all o'er
+  if (true){
+      char buf [7];
+      Serial.print("magnets: [ ");
+      dtostrf(m_body(0),5,1,buf);
+//      dtostrf(m1,5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(m_body(1),5,1,buf);
+//      dtostrf(m2,5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(m_body(2),5,1,buf);
+//      dtostrf(m3,5,1,buf);
+      Serial.print(buf);
+      Serial.println(" ]");
+  }
+  
+  // print quat att
+  if (false){
+      char buf [7];
+      Serial.print("quat: [ ");
+      dtostrf(attQuat(0),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(attQuat(1),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(attQuat(2),5,1,buf);
+      Serial.print(buf);
+      Serial.print(" ");
+      dtostrf(attQuat(3),5,1,buf);
+      Serial.print(buf);
+      Serial.println(" ]");
+  }
+}
+
 void loop() {
 
   // main timer
@@ -351,6 +437,8 @@ void loop() {
 
   // debug...
 //  debugGPS();
+//  debugBias();
+//  debugIMU();
     
   //delay(20);
 

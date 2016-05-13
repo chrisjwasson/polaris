@@ -15,6 +15,7 @@ class TM_Service(serial.Serial):
         #   'stringMessage',
             'ax','ay','az',
             'gx','gy','gz',
+            'mx','my','mz',
             'q1','q2','q3','q4',
             'lat','lon','alt',
             'deltaTimeSec',
@@ -23,9 +24,10 @@ class TM_Service(serial.Serial):
     frameVarSizes = [
         #       'f',            # elapsed time seconds (float)
         #       '32p',          # string message (32 character string)
-                'f','f','f',        # acceleration elements (float each)
-                'f','f','f',        # gyro rate elements (float each)
-                'f','f','f','f',    # attitude quaternion elements (float each)
+                'f','f','f',        # acceleration elements (floats)
+                'f','f','f',        # gyro rate elements (floats)
+                'f','f','f',        # magnet elements (floats)
+                'f','f','f','f',    # attitude quaternion elements (floats)
                 'f','f','f',        # gps lat lon alt (floats)
                 'f',            # TM frame delta time in seconds (float)
         #       'I'         # TM frame counter since init (uint32)
