@@ -60,12 +60,25 @@ uint32_t gyroBiasCounter = 0;
 // ===============================================================
 // declare local configuration values
 // TODO: shouldn't have to hard code these
+
+// determined by averaging over long time
 float gyroBias1 = -2.843;
 float gyroBias2 = 1.484;
 float gyroBias3 = -1.207;
+
+// rotated each axis to point toward and away magnetic north
+// max:  [  148  235   90 ]
+// min:  [ -112  -30 -155 ]
+// bias: [   18  102 -32.5 ]
+// scale:[ 260   265  245 ]
 float magnetBias1 = 20;
 float magnetBias2 = 105;
 float magnetBias3 = -30;
+float magnetScaleMod1 = 2.0/260;
+float magnetScaleMod2 = 2.0/265;
+float magnetScaleMod3 = 2.0/245;
+
+// from http://www.magnetic-declination.com/
 float mag_dec =  (12.0 + 7.0/60.0);
 float mag_inc =  (58.0 + 38.0/60.0);
 // ===============================================================
@@ -73,8 +86,11 @@ float mag_inc =  (58.0 + 38.0/60.0);
 
 // ===============================================================
 // filter coefficients, gains, guidance parameters
+
+// made up. seem to work okay.
 float k_magnet = 0.1; // fraction per second
 float k_grav = 0.1; // fraction per second
+
 // ===============================================================
 
 
@@ -166,7 +182,7 @@ void setup() {
   g_ned_true(1) = 0.0;
   g_ned_true(2) = 9.80665;
 
-  mhat_ned_true(0) = cos(mag_dec * PI/180) * sin(mag_inc * PI/180);
+  mhat_ned_true(0) = cos(mag_dec * PI/180) * cos(mag_inc * PI/180);
   mhat_ned_true(1) = sin(mag_dec * PI/180) * cos(mag_inc * PI/180);
   mhat_ned_true(2) = sin(mag_inc * PI/180);
   
@@ -268,9 +284,9 @@ bool handleIMU()
     w_body(2) = g3*GYRO_SCALE_FACTOR - gyroBias3;
 
     // stuff magnets into vector
-    m_body(0) = m1 - magnetBias1;
-    m_body(1) = m2 - magnetBias2;
-    m_body(2) = m3 - magnetBias3;
+    m_body(0) = (m1 - magnetBias1)*magnetScaleMod1;
+    m_body(1) = (m2 - magnetBias2)*magnetScaleMod2;
+    m_body(2) = (m3 - magnetBias3)*magnetScaleMod3;
     
     // transform stuff plane body frame
     a_body = DCM_gyroAccelToBody*a_body;
@@ -336,6 +352,12 @@ bool hackyNav()
                                theta_ghat * k_grav * deltaTSec);
 
   q_body2ned = q_body2ned * q_gbody2body;
+
+//  Serial.print("theta_mhat: ");
+//  Serial.print(theta_mhat*180/PI);
+//  Serial.print("   theta_ghat: ");
+//  Serial.print(theta_ghat*180/PI);
+//  Serial.println();
 
   // -----------------------------------------------------------------
   // Integrate accel
@@ -453,25 +475,25 @@ void debugIMU()
   }
 
   // print magnets all o'er
-  if (false){
+  if (true){
       char buf [7];
       Serial.print("magnets: [ ");
-      dtostrf(m_body(0),5,1,buf);
-//      dtostrf(m1,5,1,buf);
+//      dtostrf(m_body(0),5,1,buf);
+      dtostrf(m1,5,1,buf);
       Serial.print(buf);
       Serial.print(" ");
-      dtostrf(m_body(1),5,1,buf);
-//      dtostrf(m2,5,1,buf);
+//      dtostrf(m_body(1),5,1,buf);
+      dtostrf(m2,5,1,buf);
       Serial.print(buf);
       Serial.print(" ");
-      dtostrf(m_body(2),5,1,buf);
-//      dtostrf(m3,5,1,buf);
+//      dtostrf(m_body(2),5,1,buf);
+      dtostrf(m3,5,1,buf);
       Serial.print(buf);
       Serial.println(" ]");
   }
   
   // print quat att
-  if (true){
+  if (false){
       char buf [7];
       Serial.print("quat: [ ");
       dtostrf(q_body2ned(0),5,1,buf);
