@@ -31,6 +31,7 @@ template<class T, int R, int C> class Matrix
 		void printValues();						// print values to command line
 		Matrix<T,R,C> inverse() const;
 		T norm() const;							// 2-norm of matrix
+        Matrix<T,R,C> unit() const;             // returns unit vector
 		
 		
 	private:
@@ -39,6 +40,7 @@ template<class T, int R, int C> class Matrix
 		T m_data[R*C];
 };
 
+typedef Matrix<double,3,1> Vec3d;
 
 
 /////// include class implementation file to resolve linking issues for template class
@@ -373,26 +375,60 @@ T Matrix<T,R,C>::norm() const
 	return sqrt(normVal);
 }
 
-	
+template<class T, int R, int C>
+Matrix<T,R,C> Matrix<T,R,C>::unit() const
+{
+	Matrix<T,R,C> outMatrix = *this;
+    T mag = norm();
+    if (mag > 1e-6)
+        outMatrix = outMatrix/mag;
+    else
+    {
+        outMatrix(0) = 1;
+        outMatrix(1) = 0;
+        outMatrix(2) = 0;
+    }
+
+	return outMatrix;
+}
+
+// define cross product for 3-vectors
+static Vec3d cross(
+       const Vec3d & v1,
+       const Vec3d & v2)
+{
+    Vec3d v3;
+    v3(0) =   v1(1) * v2(2) - v1(2) * v2(1);
+    v3(1) = -(v1(0) * v2(2) - v1(2) * v2(0));
+    v3(2) =   v1(0) * v2(1) - v1(1) * v2(0);
+
+	return v3;
+}
+
+// define dot product for 3-vectors
+static double dot(
+       const Vec3d & v1,
+       const Vec3d & v2)
+{
+	return v1(0)*v2(0) + v1(1)*v2(1) + v1(2)*v2(2);
+}
 
 
+// get angle between two vectors in radians
+// note: arguments don't have to be unit vectors
+static double angle_between(
+       const Vec3d & v1,
+       const Vec3d & v2)
+{
+    // handle undefined case
+    if (v1.norm() == 0 || v2.norm() == 0)
+        return 0;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    // note: for non unit arguments, the magnitudes 
+    // appear in both numerator and denominator of atan
+    // and cancel out, giving the correct answer.
+    return atan2(cross(v1,v2).norm(),
+                      dot(v1,v2));
+}
 
 #endif // end Matrix header include guard

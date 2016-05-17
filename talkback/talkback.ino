@@ -48,21 +48,35 @@ float tmDeltaTSec;
 uint32_t lastMicroSec;
 uint32_t currMicroSec;
 uint32_t lastTmMicroSec;
-Quat attQuat;
-Quat attQuatDeriv;
-Matrix<double,3,1> a_body;
-Matrix<double,3,1> w_body;
-Matrix<double,3,1> m_body;
+Quat q_body2ned;
+Quat qdot_body2ned;
+Vec3d a_body;
+Vec3d w_body;
+Vec3d m_body;
+Vec3d g_ned_true;
+Vec3d mhat_ned_true;
 uint32_t gyroBiasCounter = 0;
+
+// ===============================================================
+// declare local configuration values
+// TODO: shouldn't have to hard code these
 float gyroBias1 = -2.843;
 float gyroBias2 = 1.484;
 float gyroBias3 = -1.207;
 float magnetBias1 = 20;
 float magnetBias2 = 105;
 float magnetBias3 = -30;
+float mag_dec =  (12.0 + 7.0/60.0);
+float mag_inc =  (58.0 + 38.0/60.0);
+// ===============================================================
 
-// [80 140 75]
-// [-40 70 -140]
+
+// ===============================================================
+// filter coefficients, gains, guidance parameters
+float k_magnet = 0.1; // fraction per second
+float k_grav = 0.1; // fraction per second
+// ===============================================================
+
 
 
 Matrix<double,3,3> DCM_gyroAccelToBody;
@@ -146,8 +160,16 @@ void setup() {
   DCM_MagToBody(2,0) = 0;
   DCM_MagToBody(2,1) = 0;
   DCM_MagToBody(2,2) = 1;
-  
 
+  // initialize nav stuff
+  g_ned_true(0) = 0.0;
+  g_ned_true(1) = 0.0;
+  g_ned_true(2) = 9.80665;
+
+  mhat_ned_true(0) = cos(mag_dec * PI/180) * sin(mag_inc * PI/180);
+  mhat_ned_true(1) = sin(mag_dec * PI/180) * cos(mag_inc * PI/180);
+  mhat_ned_true(2) = sin(mag_inc * PI/180);
+  
 }
 
 // passes gps messages directly to hard serial
@@ -222,7 +244,7 @@ bool handleGPS()
     }
   }
 
-  // return
+  // return if new data received
   return newdata;
 }
 
@@ -254,25 +276,72 @@ bool handleIMU()
     a_body = DCM_gyroAccelToBody*a_body;
     w_body = DCM_gyroAccelToBody*w_body;
     m_body = DCM_MagToBody*m_body;
-        
-    // get time since last imu update
-    if (currMicroSec < lastMicroSec) {
-      deltaTSec = ((4294967295 - lastMicroSec) + currMicroSec)/1000000.0;
-    }
-    else {
-      deltaTSec = (currMicroSec - lastMicroSec)/1000000.0;
-    }
-    lastMicroSec = currMicroSec; // reset timer
-        
-    // get attitude derivative quaternion
-    attQuatDeriv = attQuat.getQuatDerivative(w_body*M_PI/180.0);
-    
-    // perform integration for this step
-    attQuat = attQuat + (attQuatDeriv*deltaTSec);
-    
-    // normalize attitude quaternion
-    attQuat = attQuat.normalize();
+
+    return true;
   }
+  else
+  {
+    return false;
+  }
+}
+
+bool hackyNav()
+{      
+  // get time since last imu update
+  if (currMicroSec < lastMicroSec) {
+    deltaTSec = ((4294967295 - lastMicroSec) + currMicroSec)/1000000.0;
+  }
+  else {
+    deltaTSec = (currMicroSec - lastMicroSec)/1000000.0;
+  }
+  lastMicroSec = currMicroSec; // reset timer
+
+
+  // -----------------------------------------------------------------
+  // Integrate angular velocity
+  // -----------------------------------------------------------------
+  // get attitude derivative quaternion
+  qdot_body2ned = q_body2ned.getQuatDerivative(w_body*M_PI/180.0);
+  
+  // perform integration for this step
+  q_body2ned = q_body2ned + (qdot_body2ned*deltaTSec);
+  
+  // normalize attitude quaternion
+  q_body2ned = q_body2ned.normalize();
+
+  // -----------------------------------------------------------------
+  // Absolute attitude correction
+  // -----------------------------------------------------------------
+
+  // OH GOD THIS IS ALL SO HACKY
+  
+  // Correct towards north
+  Vec3d mhat_body_calc = q_body2ned.inverse().rotateCsys(mhat_ned_true);
+  Vec3d mhat_body_meas = m_body/m_body.norm();
+  double theta_mhat = angle_between(mhat_body_calc, mhat_body_meas);
+  Vec3d rvec_mhat = cross(mhat_body_meas, mhat_body_calc).unit();
+  
+  Quat q_mbody2body = Quat(rvec_mhat, 
+                               theta_mhat * k_magnet * deltaTSec);
+
+  q_body2ned = q_body2ned * q_mbody2body;
+
+  // Correct towards down
+  Vec3d ghat_body_calc = q_body2ned.inverse().rotateCsys(g_ned_true.unit());
+  Vec3d ghat_body_meas = a_body/a_body.norm() * -1;
+  double theta_ghat = angle_between(ghat_body_calc, ghat_body_meas);
+  Vec3d rvec_ghat = cross(ghat_body_meas, ghat_body_calc).unit();
+  
+  Quat q_gbody2body = Quat(rvec_ghat, 
+                               theta_ghat * k_grav * deltaTSec);
+
+  q_body2ned = q_body2ned * q_gbody2body;
+
+  // -----------------------------------------------------------------
+  // Integrate accel
+  // -----------------------------------------------------------------
+
+  
 }
 
 bool handleTelem()
@@ -296,10 +365,10 @@ bool handleTelem()
   tmMessage.gz = w_body(2);
   
   // attitude estimate
-  tmMessage.q1 = attQuat(0);
-  tmMessage.q2 = attQuat(1);
-  tmMessage.q3 = attQuat(2);
-  tmMessage.q4 = attQuat(3);
+  tmMessage.q1 = q_body2ned(0);
+  tmMessage.q2 = q_body2ned(1);
+  tmMessage.q3 = q_body2ned(2);
+  tmMessage.q4 = q_body2ned(3);
 
   // translation state
   tmMessage.lat = gps.latitude;
@@ -384,7 +453,7 @@ void debugIMU()
   }
 
   // print magnets all o'er
-  if (true){
+  if (false){
       char buf [7];
       Serial.print("magnets: [ ");
       dtostrf(m_body(0),5,1,buf);
@@ -402,19 +471,19 @@ void debugIMU()
   }
   
   // print quat att
-  if (false){
+  if (true){
       char buf [7];
       Serial.print("quat: [ ");
-      dtostrf(attQuat(0),5,1,buf);
+      dtostrf(q_body2ned(0),5,1,buf);
       Serial.print(buf);
       Serial.print(" ");
-      dtostrf(attQuat(1),5,1,buf);
+      dtostrf(q_body2ned(1),5,1,buf);
       Serial.print(buf);
       Serial.print(" ");
-      dtostrf(attQuat(2),5,1,buf);
+      dtostrf(q_body2ned(2),5,1,buf);
       Serial.print(buf);
       Serial.print(" ");
-      dtostrf(attQuat(3),5,1,buf);
+      dtostrf(q_body2ned(3),5,1,buf);
       Serial.print(buf);
       Serial.println(" ]");
   }
@@ -431,6 +500,9 @@ void loop() {
 
   // handle imu
   handleIMU();
+
+  // navigate
+  hackyNav();
 
   // handle telem
   handleTelem();

@@ -54,6 +54,19 @@ class TM_Service(serial.Serial):
 
         return checksum
 
+    def validateContents(self):
+        # check if quaternion is normalized, if not, then reject frame
+        tol = 1e-5
+        if (abs(math.sqrt(
+                  self.TM_Data.q1*self.TM_Data.q1
+                + self.TM_Data.q2*self.TM_Data.q2
+                + self.TM_Data.q3*self.TM_Data.q3
+                + self.TM_Data.q4*self.TM_Data.q4) - 1) < tol):
+            # return true indicating frame is good and TM was updated
+            return True
+
+        else:
+            return False
 
     # pull any new TM and update buffer
     def updateTM(self):
@@ -86,18 +99,6 @@ class TM_Service(serial.Serial):
 
                 # return true indicating frame is good and TM was updated
                 return True
-
-                # check if quaternion is normalized, if not, then reject frame
-                tol = 1e-5
-
-                # TODO: this check should live elsewhere, since we often want to debug
-                # with potentially crazy data
-#               if (abs(math.sqrt(TM_Data.q1*TM_Data.q1 + TM_Data.q2*TM_Data.q2 + TM_Data.q3*TM_Data.q3 + TM_Data.q4*TM_Data.q4) - 1) < tol):
-#                   # copy data to TM service data tuple/struct
-#                   self.TM_Data = TM_Data
-
-#                   # return true indicating frame is good and TM was updated
-#                   return True
 
             # checksums didn't match - this isn't a frame, discard data preAmble to not consider again
             else:

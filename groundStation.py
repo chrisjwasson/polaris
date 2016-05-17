@@ -198,7 +198,7 @@ class MyApp(ShowBase):
 
         # update TM
         tmUpdated = self.tmService.updateTM()
-        if tmUpdated:
+        if tmUpdated and self.tmService.validateContents():
             
             print ''
             print ''

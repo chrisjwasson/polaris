@@ -26,6 +26,7 @@ class Quat {
 		Quat operator*(const Quat& rightQuat) const;
 		Quat operator/(const Quat& quatDivisor) const;
 		Quat getQuatDerivative(const Matrix<double,3,1> & rateRadSec);
+        Matrix<double,3,1> rotateCsys(Matrix<double,3,1>);
 
 	private:
 
