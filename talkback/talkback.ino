@@ -6,16 +6,16 @@
 #include "Matrix.h"
 #include "Quat.h"
 #include <Adafruit_GPS.h>
-#include <SoftwareSerial.h>
+#include <AltSoftSerial.h>
 
 // Define software serial object, used to communicate with gps.
 // NOTE: this sketch is written assuming the xbee shield uses
 // the UART. As long as this is true, we don't need to worry 
 // swserial collisions.
-SoftwareSerial swserial(5,4);
+AltSoftSerial swserial(5,4);
 
 // Define GPS object
-Adafruit_GPS<SoftwareSerial> gps(&swserial);
+Adafruit_GPS<AltSoftSerial> gps(&swserial);
 
 #define GYRO_SCALE_FACTOR 2000.0/32768.0
 #define ACCEL_SCALE_FACTOR 16.0/32768.0*9.81;
