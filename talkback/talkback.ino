@@ -1,4 +1,3 @@
-#include "Wire.h"
 // I2Cdev and MPU6050 must be installlibraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
 #include "I2Cdev.h"
@@ -12,7 +11,7 @@
 // NOTE: this sketch is written assuming the xbee shield uses
 // the UART. As long as this is true, we don't need to worry 
 // swserial collisions.
-AltSoftSerial swserial(5,4);
+AltSoftSerial swserial;
 
 // Define GPS object
 Adafruit_GPS<AltSoftSerial> gps(&swserial);
@@ -510,7 +509,6 @@ void debugIMU()
       Serial.println(" ]");
   }
 }
-
 void loop() {
 
   // main timer
