@@ -93,7 +93,6 @@ float k_grav = 0.1; // fraction per second
 // ===============================================================
 
 
-
 Matrix<double,3,3> DCM_gyroAccelToBody;
 Matrix<double,3,3> DCM_MagToBody;
 
@@ -185,6 +184,22 @@ void setup() {
   mhat_ned_true(1) = sin(mag_dec * PI/180) * cos(mag_inc * PI/180);
   mhat_ned_true(2) = sin(mag_inc * PI/180);
   
+}
+
+void handleTime()
+{
+  // TODO: handle rollover
+    
+  currMicroSec = micros();
+  
+  // get time since last update
+  if (currMicroSec < lastMicroSec) {
+    deltaTSec = ((4294967295 - lastMicroSec) + currMicroSec)/1000000.0;
+  }
+  else {
+    deltaTSec = (currMicroSec - lastMicroSec)/1000000.0;
+  }
+  lastMicroSec = currMicroSec; // reset timer
 }
 
 // passes gps messages directly to hard serial
@@ -300,18 +315,8 @@ bool handleIMU()
   }
 }
 
-bool hackyNav()
-{      
-  // get time since last imu update
-  if (currMicroSec < lastMicroSec) {
-    deltaTSec = ((4294967295 - lastMicroSec) + currMicroSec)/1000000.0;
-  }
-  else {
-    deltaTSec = (currMicroSec - lastMicroSec)/1000000.0;
-  }
-  lastMicroSec = currMicroSec; // reset timer
-
-
+bool hackyNav2()
+{
   // -----------------------------------------------------------------
   // Integrate angular velocity
   // -----------------------------------------------------------------
@@ -323,6 +328,67 @@ bool hackyNav()
   
   // normalize attitude quaternion
   q_body2ned = q_body2ned.normalize();
+  
+  // -----------------------------------------------------------------
+  // Absolute attitude correction
+  // -----------------------------------------------------------------
+
+  // Correct towards north
+  Vec3d mhat_body_calc = q_body2ned.inverse().rotateCsys(mhat_ned_true);
+  Vec3d mhat_body_meas = m_body/m_body.norm();
+  double theta_mhat = angle_between(mhat_body_calc, mhat_body_meas);
+
+  // Correct towards down
+  Vec3d ghat_body_calc = q_body2ned.inverse().rotateCsys(g_ned_true.unit());
+  Vec3d ghat_body_meas = a_body/a_body.norm() * -1;
+  double theta_ghat = angle_between(ghat_body_calc, ghat_body_meas);
+
+  // trying to figure out quaternion rotation from self into calc
+  
+  // first figure out rotation which aligns the plane containing mhat and ghat
+  Vec3d norm_calc_body = cross( mhat_body_calc, ghat_body_calc);
+  Vec3d norm_meas_body = cross( mhat_body_meas, ghat_body_meas);
+  Vec3d rvec_coplanar = cross( norm_meas_body, norm_calc_body ).unit();
+  double theta_coplanar = angle_between(norm_meas_body, norm_calc_body);
+  Quat q_coplanar2body = Quat(rvec_coplanar, theta_coplanar);
+  
+  // next figure out rotation in that plane which aligns the "middle vectors"
+  Vec3d middle_calc_body = (mhat_body_calc + ghat_body_calc).unit();
+  Vec3d middle_meas_body = (mhat_body_meas + ghat_body_meas).unit();
+
+  Vec3d middle_calc_coplanar = q_coplanar2body.rotateCsys(middle_calc_body);
+  Vec3d middle_meas_coplanar = q_coplanar2body.rotateCsys(middle_meas_body);
+  Vec3d rvec_alignmid = cross( middle_meas_coplanar, middle_calc_coplanar ).unit();
+  double theta_alignmid = angle_between(middle_calc_coplanar, middle_meas_coplanar);
+  Quat q_bestfit2coplanar = Quat(rvec_alignmid, theta_alignmid);
+
+  // now you have the rotation to the best fit orientation, ie, your directly 
+  // measured orientation
+  Quat q_bestfit2body = q_coplanar2body*q_bestfit2coplanar;
+
+  // now do the blending step by scaling this rotation by timestep
+  q_newbody2body = Quat::slerp( Quat(), q_bestfit2body.inverse(), deltaTSec * k_grav );
+  q_body2ned = (q_body2ned*q_newbody2body).normalize();
+  
+}
+
+
+bool hackyNav()
+{
+  float t0 = millis()/1000.0;
+  // -----------------------------------------------------------------
+  // Integrate angular velocity
+  // -----------------------------------------------------------------
+  // get attitude derivative quaternion
+  qdot_body2ned = q_body2ned.getQuatDerivative(w_body*M_PI/180.0);
+  
+  // perform integration for this step
+  q_body2ned = q_body2ned + (qdot_body2ned*deltaTSec);
+  
+  // normalize attitude quaternion
+  q_body2ned = q_body2ned.normalize();
+  
+  float t1 = millis()/1000.0;
 
   // -----------------------------------------------------------------
   // Absolute attitude correction
@@ -341,6 +407,8 @@ bool hackyNav()
 
   q_body2ned = q_body2ned * q_mbody2body;
 
+  float t2 = millis()/1000.0;
+
   // Correct towards down
   Vec3d ghat_body_calc = q_body2ned.inverse().rotateCsys(g_ned_true.unit());
   Vec3d ghat_body_meas = a_body/a_body.norm() * -1;
@@ -358,11 +426,17 @@ bool hackyNav()
 //  Serial.print(theta_ghat*180/PI);
 //  Serial.println();
 
+  float t3 = millis()/1000.0;
+
   // -----------------------------------------------------------------
   // Integrate accel
   // -----------------------------------------------------------------
 
-  
+//  Serial.print(" "); Serial.print(t1-t0,5);
+//  Serial.print(" "); Serial.print(t2-t1,5);
+//  Serial.print(" "); Serial.print(t3-t2,5);
+//  Serial.print(" "); Serial.print(t4-t3,5);
+//  Serial.println();
 }
 
 bool handleTelem()
@@ -509,20 +583,33 @@ void debugIMU()
       Serial.println(" ]");
   }
 }
+<<<<<<< Updated upstream
+=======
+
+
+// TODO:
+// attitude integration step is too coarse. if you do a quick, 
+// jerky rotation, the error tends to be huge. find ways to speed 
+// up main loop, and read buffered body rates for batch integration
+// if possible
+//
+// i think the magnetic and accel att corrections fight each other
+// sometimes. could you maybe compute a single combined rotation that 
+// does a better job?
+>>>>>>> Stashed changes
 void loop() {
 
   // main timer
-  // TODO: handle rollover
-  currMicroSec = micros();
-
-  // handle gps
-  handleGPS();
+  handleTime();
 
   // handle imu
   handleIMU();
 
+  // handle gps
+  handleGPS();
+
   // navigate
-  hackyNav();
+  hackyNav2();
 
   // handle telem
   handleTelem();

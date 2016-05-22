@@ -96,7 +96,7 @@ Matrix<T,R,C> Matrix<T,R,C>::operator+(const Matrix<T,R,C>& rhs) const
 {
 	Matrix<T,R,C> lhs = rhs;
 	for (int ii = 0; ii < m_numRows*m_numCols; ii++)
-		lhs = this->m_data[ii] + rhs.m_data[ii];
+		lhs.m_data[ii] = this->m_data[ii] + rhs.m_data[ii];
 }
 
 // subtraction operator
@@ -105,7 +105,7 @@ Matrix<T,R,C> Matrix<T,R,C>::operator-(const Matrix<T,R,C>& rhs) const
 {
 	Matrix<T,R,C> lhs = rhs;
 	for (int ii = 0; ii < m_numRows*m_numCols; ii++)
-		lhs = this->m_data[ii] - rhs.m_data[ii];
+		lhs.m_data[ii] = this->m_data[ii] - rhs.m_data[ii];
 }
 
 // element-by-element multiplication
