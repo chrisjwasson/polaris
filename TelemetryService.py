@@ -40,7 +40,7 @@ class TM_Service(serial.Serial):
     TM_DataType = namedtuple('TM_Data',frameFields)
 
     # form telemetry data named tuple
-    TM_Data = TM_DataType._make(struct.unpack(frameVarSizes,bytearray(totalFrameSizeBytes)))
+    TM_Data = TM_DataType._make(struct.unpack(frameVarSizes,str(bytearray(totalFrameSizeBytes))))
 
     # declare TM data buffer
     dataBuffer = bytearray()
@@ -89,7 +89,7 @@ class TM_Service(serial.Serial):
             if (telemeteredChecksum == computedChecksum):
 
                 # unpack buffer data into TM named tuple
-                TM_Data = self.TM_DataType._make(struct.unpack(self.frameVarSizes,self.dataBuffer[frameStartIdx+2:frameStartIdx+self.totalFrameSizeBytesWithEnds-1]))
+                TM_Data = self.TM_DataType._make(struct.unpack(self.frameVarSizes,str(self.dataBuffer[frameStartIdx+2:frameStartIdx+self.totalFrameSizeBytesWithEnds-1])))
 
                 # prune this data from the buffer
                 del self.dataBuffer[0:frameStartIdx+self.totalFrameSizeBytesWithEnds]

@@ -3,6 +3,7 @@
 # import pdb; pdb.set_trace()
 import sys
 sys.path.append('/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/site-packages')
+sys.path.append('/Library/Python/2.7/site-packages')
 
 from math import pi, sin, cos
 from direct.showbase.ShowBase import ShowBase
