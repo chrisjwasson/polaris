@@ -367,7 +367,7 @@ bool hackyNav2()
   Quat q_bestfit2body = q_coplanar2body*q_bestfit2coplanar;
 
   // now do the blending step by scaling this rotation by timestep
-  q_newbody2body = Quat::slerp( Quat(), q_bestfit2body.inverse(), deltaTSec * k_grav );
+  Quat q_newbody2body = slerp( Quat(), q_bestfit2body.inverse(), deltaTSec * k_grav );
   q_body2ned = (q_body2ned*q_newbody2body).normalize();
   
 }
@@ -583,8 +583,6 @@ void debugIMU()
       Serial.println(" ]");
   }
 }
-<<<<<<< Updated upstream
-=======
 
 
 // TODO:
@@ -596,7 +594,6 @@ void debugIMU()
 // i think the magnetic and accel att corrections fight each other
 // sometimes. could you maybe compute a single combined rotation that 
 // does a better job?
->>>>>>> Stashed changes
 void loop() {
 
   // main timer
