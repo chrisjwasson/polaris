@@ -17,10 +17,12 @@ class Quat {
 		Quat operator+(double bias) const;
 		Quat operator+(const Quat& inQuat) const;
 		Quat operator-(double bias) const;
+		Quat operator-(const Quat& q) const;
+		Quat operator-() const;
 		double& operator()(int index);
 		double operator()(int index) const;
-		void printValues();
-		double norm();
+		void printValues() const;
+		double norm() const;
 		Quat normalize() const;
 		Quat inverse() const;
 		double dot(const Quat& q) const;
@@ -35,6 +37,8 @@ class Quat {
 
 };
 
-Quat slerp(const Quat& q0, const Quat& q1, double t);
+inline Quat operator*(double f, const Quat& q2) { return q2 * f; }
+
+Quat slerp(const Quat& q0, Quat q1, double t);
 
 #endif

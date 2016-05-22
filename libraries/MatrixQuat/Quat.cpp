@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <math.h>
 
+template <typename T> T min(T a, T b) { a <= b ? a : b; }
+template <typename T> T max(T a, T b) { a >= b ? a : b; }
+
 using namespace std; // for printValues() using cout
 
 // default constructor      
@@ -94,6 +97,14 @@ Quat Quat::operator+(const Quat& inQuat) const
             m_data[3] + inQuat(3));
 }
 
+Quat Quat::operator-(const Quat& q) const
+{
+    return Quat(m_data[0] - q.m_data[0],
+                m_data[1] - q.m_data[1],
+                m_data[2] - q.m_data[2],
+                m_data[3] - q.m_data[3]);
+}
+
 // subtraction of constant
 Quat Quat::operator-(double bias) const
 {
@@ -101,6 +112,15 @@ Quat Quat::operator-(double bias) const
             m_data[1]-bias, \
             m_data[2]-bias, \
             m_data[3]-bias);
+}
+
+Quat Quat::operator-() const
+{
+    return Quat(
+        -m_data[0],
+        -m_data[1],
+        -m_data[2],
+        -m_data[3]);
 }
 
 // quaternion element access by reference
@@ -116,7 +136,7 @@ double Quat::operator()(int index) const
 }
 
 // print quaternion values
-void Quat::printValues()
+void Quat::printValues() const
 {
     printf("\n");
     for (int ii = 0; ii < 4; ii++)
@@ -127,7 +147,7 @@ void Quat::printValues()
 }
 
 // get magnitude (2-norm) of quaternion
-double Quat::norm()
+double Quat::norm() const 
 {
     return sqrt(m_data[0]*m_data[0] + \
             m_data[1]*m_data[1] + \
@@ -208,17 +228,18 @@ Matrix<double,3,1> Quat::rotateCsys(Matrix<double,3,1> v)
 }
 
 
-Quat slerp(const Quat &q0, const Quat &q1, double t) const {
+Quat slerp(const Quat &q0, Quat q1, double t) 
+{
     // assumed unit quaternion.
     double dot = q0.dot(q1);
     if (dot < 0) { //angle is greater than 90. Avoid "long path" rotations.
         dot = -dot;
         q1 = -q1;
     }
-    dot = std::max(0, std::min(1, dot)); //keep <dot> in the domain of acos.
-    double omega = std::acos(dot);
+    dot = max(0., min(1., dot)); //keep <dot> in the domain of acos.
+    double omega = acos(dot);
     double theta = omega * t;
     Quat q2 = (q1 - q0 * dot).normalize();
-    return std::cos(theta) * q0 + std::sin(theta) * q2;
+    return cos(theta) * q0 + sin(theta) * q2;
 }
 
