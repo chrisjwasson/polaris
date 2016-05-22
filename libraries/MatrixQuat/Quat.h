@@ -21,8 +21,9 @@ class Quat {
 		double operator()(int index) const;
 		void printValues();
 		double norm();
-		Quat normalize();
+		Quat normalize() const;
 		Quat inverse() const;
+		double dot(const Quat& q) const;
 		Quat operator*(const Quat& rightQuat) const;
 		Quat operator/(const Quat& quatDivisor) const;
 		Quat getQuatDerivative(const Matrix<double,3,1> & rateRadSec);
@@ -33,5 +34,7 @@ class Quat {
 		double m_data[4];
 
 };
+
+Quat slerp(const Quat& q0, const Quat& q1, double t);
 
 #endif

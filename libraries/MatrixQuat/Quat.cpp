@@ -136,7 +136,7 @@ double Quat::norm()
 }
 
 // return normalized version of quaternion
-Quat Quat::normalize()
+Quat Quat::normalize() const
 {
     return (*this)/this->norm();
 }
@@ -148,6 +148,13 @@ Quat Quat::inverse() const
             m_data[1], \
             m_data[2], \
             -m_data[3]);
+}
+
+double Quat::dot(const Quat& q) const {
+    double z = 0;
+    for (char i = 0; i < 4; i++) {
+        z += m_data[i] * q.m_data[i]; 
+    }
 }
 
 // quaternion multiplication on the right
@@ -198,5 +205,20 @@ Matrix<double,3,1> Quat::rotateCsys(Matrix<double,3,1> v)
     dcm(2,2) = 1 - 2*qi*qi - 2*qj*qj;
 
     return (dcm * v);
+}
+
+
+Quat slerp(const Quat &q0, const Quat &q1, T t) const {
+    // assumed unit quaternion.
+    double dot = q0.dot(q1);
+    if (dot < 0) { //angle is greater than 90. Avoid "long path" rotations.
+        dot = -dot;
+        q1 = -q1;
+    }
+    dot = std::max(0, std::min(1, dot)); //keep <dot> in the domain of acos.
+    double omega = std::acos(dot);
+    double theta = omega * t;
+    Quat q2 = (q1 - q0 * dot).normalize();
+    return std::cos(theta) * q0 + std::sin(theta) * q2;
 }
 
