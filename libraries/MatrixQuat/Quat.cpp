@@ -208,7 +208,7 @@ Matrix<double,3,1> Quat::rotateCsys(Matrix<double,3,1> v)
 }
 
 
-Quat slerp(const Quat &q0, const Quat &q1, T t) const {
+Quat slerp(const Quat &q0, const Quat &q1, double t) const {
     // assumed unit quaternion.
     double dot = q0.dot(q1);
     if (dot < 0) { //angle is greater than 90. Avoid "long path" rotations.
