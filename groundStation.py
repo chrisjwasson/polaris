@@ -224,9 +224,18 @@ class MyApp(ShowBase):
             print "Magnet Y (deg/sec): ",self.tmService.TM_Data.my
             print "Magnet Z (deg/sec): ",self.tmService.TM_Data.mz
             print ''
+            print "Position X (deg/sec): ",self.tmService.TM_Data.rx
+            print "Position Y (deg/sec): ",self.tmService.TM_Data.ry
+            print "Position Z (deg/sec): ",self.tmService.TM_Data.rz
+            print ''
             print "lat (deg): ",self.tmService.TM_Data.lat
             print "lon (deg): ",self.tmService.TM_Data.lon
             print "alt (ft?): ",self.tmService.TM_Data.alt
+
+            # set position based on telemetry
+            self.planeModel.setPos(self.tmService.TM_Data.rx,
+                                   self.tmService.TM_Data.ry,
+                                   -self.tmService.TM_Data.rz + 40)
 
             # compute the body to model transformation
             quatBodyToModel = Quat(math.sqrt(2)/2.0,0.0,0.0,-math.sqrt(2)/2.0) # 90 degree z-rotation

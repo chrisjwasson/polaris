@@ -28,6 +28,7 @@ typedef struct {
   float gx, gy, gz;
   float mx, my, mz;
   float q1, q2, q3, q4;
+  float r1, r2, r3;
   float lat, lon, alt;
   float deltaTimeSec;
 //  uint32_t loopCounter;
@@ -50,6 +51,8 @@ uint32_t lastTmMicroSec;
 Quat q_body2ned;
 Quat qdot_body2ned;
 Vec3d a_body;
+Vec3d v_ned;
+Vec3d r_ned;
 Vec3d w_body;
 Vec3d m_body;
 Vec3d g_ned_true;
@@ -183,7 +186,14 @@ void setup() {
   mhat_ned_true(0) = cos(mag_dec * PI/180) * cos(mag_inc * PI/180);
   mhat_ned_true(1) = sin(mag_dec * PI/180) * cos(mag_inc * PI/180);
   mhat_ned_true(2) = sin(mag_inc * PI/180);
+
+  v_ned(0) = 0;
+  v_ned(1) = 0;
+  v_ned(2) = 0;
   
+  r_ned(0) = 0;
+  r_ned(1) = 0;
+  r_ned(2) = 0;
 }
 
 void handleTime()
@@ -369,7 +379,40 @@ bool hackyNav2()
   // now do the blending step by scaling this rotation by timestep
   Quat q_newbody2body = slerp( Quat(), q_bestfit2body.inverse(), deltaTSec * k_grav );
   q_body2ned = (q_body2ned*q_newbody2body).normalize();
+
+  // -----------------------------------------------------------------
+  // Inertial translation
+  // -----------------------------------------------------------------
+  Vec3d a_ned = q_body2ned.rotateCsys(a_body);
+//  Vec3d dv_ned = (a_ned + g_ned_true);
+//  v_ned = v_ned + dv_ned;
+//  Vec3d dr_ned = v_ned * deltaTSec;
+//  r_ned = r_ned + dr_ned;
+
+  Serial.print("[");
+  Serial.print(a_ned(0), 3); Serial.print(" ");
+  Serial.print(a_ned(1), 3); Serial.print(" ");
+  Serial.print(a_ned(2), 3); Serial.print(" ");
+  Serial.print("]");
+
+//  Serial.print(" [");
+//  Serial.print(dv_ned(0), 3); Serial.print(" ");
+//  Serial.print(dv_ned(1), 3); Serial.print(" ");
+//  Serial.print(dv_ned(2), 3); Serial.print(" ");
+//  Serial.print("]");
+//
+//  Serial.print(" [");
+//  Serial.print(r_ned(0), 3); Serial.print(" ");
+//  Serial.print(r_ned(1), 3); Serial.print(" ");
+//  Serial.print(r_ned(2), 3); Serial.print(" ");
+//  Serial.print("]");
   
+  Serial.println();
+
+
+  // -----------------------------------------------------------------
+  // Translational filtering
+  // -----------------------------------------------------------------
 }
 
 
@@ -469,6 +512,10 @@ bool handleTelem()
   tmMessage.lat = gps.latitude;
   tmMessage.lon = gps.longitude;
   tmMessage.alt = gps.altitude;
+
+  tmMessage.r1 = r_ned(0);
+  tmMessage.r2 = r_ned(1);
+  tmMessage.r3 = r_ned(2);
 
   // get time since last TM frame send
   if (currMicroSec < lastTmMicroSec) {
@@ -609,7 +656,7 @@ void loop() {
   hackyNav2();
 
   // handle telem
-  handleTelem();
+//  handleTelem();
 
   // debug...
 //  debugGPS();

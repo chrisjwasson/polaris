@@ -17,6 +17,7 @@ class TM_Service(serial.Serial):
             'gx','gy','gz',
             'mx','my','mz',
             'q1','q2','q3','q4',
+            'rx','ry','rz',
             'lat','lon','alt',
             'deltaTimeSec',
         #   'loopCounter'
@@ -28,6 +29,7 @@ class TM_Service(serial.Serial):
                 'f','f','f',        # gyro rate elements (floats)
                 'f','f','f',        # magnet elements (floats)
                 'f','f','f','f',    # attitude quaternion elements (floats)
+                'f','f','f',        # onboard position estimate (floats)
                 'f','f','f',        # gps lat lon alt (floats)
                 'f',            # TM frame delta time in seconds (float)
         #       'I'         # TM frame counter since init (uint32)
